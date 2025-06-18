@@ -1,0 +1,772 @@
+/* 토스 스타일 변수 */
+:root {
+    --toss-blue: #3182F6;
+    --toss-blue-light: #E8F3FF;
+    --toss-blue-dark: #1B64DA;
+    --toss-gray-50: #F9FAFB;
+    --toss-gray-100: #F2F4F6;
+    --toss-gray-200: #E5E8EB;
+    --toss-gray-300: #D1D6DB;
+    --toss-gray-400: #B0B8C1;
+    --toss-gray-500: #8B95A1;
+    --toss-gray-600: #6B7684;
+    --toss-gray-700: #4E5968;
+    --toss-gray-800: #333D4B;
+    --toss-gray-900: #191F28;
+    --toss-white: #FFFFFF;
+    --toss-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    --toss-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
+    --toss-shadow-xl: 0 8px 25px rgba(0, 0, 0, 0.15);
+    --toss-radius: 12px;
+    --toss-radius-sm: 8px;
+}
+
+/* 전체 페이지 스타일 */
+body {
+    background-color: var(--toss-gray-50);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: var(--toss-gray-800);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+.container-fluid {
+    padding: 0;
+    margin: 0;
+    max-width: none;
+}
+
+/* 지도 전체 화면 스타일 */
+#map {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+}
+
+/* 지도 위에 떠있는 필터 */
+.toss-floating-filter {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 1000;
+    width: 380px;
+    max-width: calc(100vw - 40px);
+}
+
+/* 토스 필터 컨테이너 */
+.toss-filter-container {
+    background: var(--toss-white);
+    border-radius: var(--toss-radius);
+    box-shadow: var(--toss-shadow-xl);
+    border: 1px solid var(--toss-gray-200);
+    overflow: hidden;
+    backdrop-filter: blur(10px);
+}
+
+.toss-filter-header {
+    padding: 20px 24px;
+    background: var(--toss-white);
+    border-bottom: 1px solid var(--toss-gray-200);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background-color 0.2s ease;
+}
+
+.toss-filter-header:hover {
+    background: var(--toss-gray-50);
+}
+
+.toss-filter-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--toss-gray-800);
+}
+
+.toss-icon {
+    color: var(--toss-blue);
+}
+
+.toss-chevron {
+    color: var(--toss-gray-500);
+    transition: transform 0.3s ease;
+}
+
+.toss-filter-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    padding: 0 24px;
+    background: var(--toss-white);
+}
+
+.toss-filter-content.expanded {
+    max-height: 80vh;
+    padding: 24px;
+    overflow-y: auto;
+}
+
+/* 토스 스타일 스크롤바 */
+.toss-filter-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.toss-filter-content::-webkit-scrollbar-track {
+    background: var(--toss-gray-100);
+    border-radius: 3px;
+}
+
+.toss-filter-content::-webkit-scrollbar-thumb {
+    background: var(--toss-blue);
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+}
+
+.toss-filter-content::-webkit-scrollbar-thumb:hover {
+    background: var(--toss-blue-dark);
+}
+
+/* Firefox 스크롤바 스타일 */
+.toss-filter-content {
+    scrollbar-width: thin;
+    scrollbar-color: var(--toss-blue) var(--toss-gray-100);
+}
+
+/* 네이버 지도 InfoWindow 스크롤바 스타일링 */
+/* InfoWindow 내부 스크롤바 커스터마이징 */
+.infowindow-content {
+    scrollbar-width: thin;
+    scrollbar-color: var(--toss-blue) var(--toss-gray-100);
+}
+
+.infowindow-content::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.infowindow-content::-webkit-scrollbar-track {
+    background: var(--toss-gray-100);
+    border-radius: 4px;
+}
+
+.infowindow-content::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--toss-blue) 0%, var(--toss-blue-dark) 100%);
+    border-radius: 4px;
+    border: 1px solid var(--toss-gray-200);
+    transition: all 0.2s ease;
+}
+
+.infowindow-content::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, var(--toss-blue-dark) 0%, #1B4ADA 100%);
+    box-shadow: 0 2px 4px rgba(49, 130, 246, 0.3);
+}
+
+.infowindow-content::-webkit-scrollbar-corner {
+    background: var(--toss-gray-100);
+}
+
+/* 네이버 지도 기본 InfoWindow 스타일 오버라이드 */
+.infoWindow {
+    border-radius: var(--toss-radius) !important;
+    box-shadow: var(--toss-shadow-xl) !important;
+    border: none !important;
+}
+
+/* 네이버 지도 InfoWindow 내부 스크롤 영역 전역 스타일 */
+div[style*="overflow-y: auto"] {
+    scrollbar-width: thin;
+    scrollbar-color: var(--toss-blue) var(--toss-gray-100);
+}
+
+div[style*="overflow-y: auto"]::-webkit-scrollbar {
+    width: 8px;
+}
+
+div[style*="overflow-y: auto"]::-webkit-scrollbar-track {
+    background: var(--toss-gray-100);
+    border-radius: 4px;
+}
+
+div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--toss-blue) 0%, var(--toss-blue-dark) 100%);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+div[style*="overflow-y: auto"]::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, var(--toss-blue-dark) 0%, #1B4ADA 100%);
+    box-shadow: 0 2px 4px rgba(49, 130, 246, 0.3);
+}
+
+/* 모든 스크롤 가능한 요소에 대한 전역 스타일 (네이버 지도 InfoWindow 포함) */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #3182F6 #F2F4F6;
+}
+
+*::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: #F2F4F6;
+    border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #3182F6 0%, #1B64DA 100%);
+    border-radius: 4px;
+    border: 1px solid #E5E8EB;
+    transition: all 0.2s ease;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #1B64DA 0%, #1B4ADA 100%);
+    box-shadow: 0 2px 4px rgba(49, 130, 246, 0.3);
+}
+
+*::-webkit-scrollbar-corner {
+    background: #F2F4F6;
+}
+
+/* 네이버 지도 특정 요소들 스타일링 */
+.infoWindow, 
+[class*="infoWindow"], 
+[id*="infoWindow"],
+.naver-maps-info-window {
+    border-radius: 12px !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+    border: none !important;
+    overflow: hidden !important;
+}
+
+/* 토스 입력 그룹 */
+.toss-input-group {
+    position: relative;
+    margin-bottom: 24px;
+}
+
+.toss-input {
+    width: 100%;
+    padding: 16px 48px 16px 16px;
+    border: 2px solid var(--toss-gray-200);
+    border-radius: var(--toss-radius-sm);
+    font-size: 16px;
+    background: var(--toss-white);
+    color: var(--toss-gray-900);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.toss-input:focus {
+    outline: none;
+    border-color: var(--toss-blue);
+    box-shadow: 0 0 0 3px var(--toss-blue-light);
+}
+
+.toss-input-icon {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--toss-gray-400);
+}
+
+/* 토스 섹션 */
+.toss-section {
+    margin-bottom: 32px;
+}
+
+.toss-label {
+    display: block;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--toss-gray-800);
+    margin-bottom: 12px;
+}
+
+/* 토스 시트 그리드 */
+.toss-sheet-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.toss-sheet-radio {
+    display: none;
+}
+
+.toss-sheet-button {
+    padding: 14px 16px;
+    border: 2px solid var(--toss-gray-200);
+    border-radius: var(--toss-radius-sm);
+    background: var(--toss-white);
+    color: var(--toss-gray-600);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toss-sheet-button:hover {
+    border-color: var(--toss-blue);
+    color: var(--toss-blue);
+    background: var(--toss-blue-light);
+}
+
+.toss-sheet-radio:checked + .toss-sheet-button {
+    background: var(--toss-blue);
+    border-color: var(--toss-blue);
+    color: var(--toss-white);
+    box-shadow: var(--toss-shadow);
+}
+
+/* 토스 칩 그룹 */
+.toss-chip-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.toss-chip-radio {
+    display: none;
+}
+
+.toss-chip {
+    padding: 12px 20px;
+    border: 2px solid var(--toss-gray-200);
+    border-radius: 24px;
+    background: var(--toss-white);
+    color: var(--toss-gray-600);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.toss-chip:hover {
+    border-color: var(--toss-blue);
+    color: var(--toss-blue);
+}
+
+.toss-chip-radio:checked + .toss-chip {
+    background: var(--toss-blue);
+    border-color: var(--toss-blue);
+    color: var(--toss-white);
+    box-shadow: var(--toss-shadow);
+}
+
+/* 토스 범위 그룹 */
+.toss-range-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.toss-range-row {
+    display: flex;
+    gap: 12px;
+}
+
+.toss-range-divider {
+    text-align: center;
+    color: var(--toss-gray-500);
+    font-weight: 600;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 8px;
+}
+
+.toss-input-wrapper {
+    flex: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.toss-number-input {
+    width: 100%;
+    padding: 14px 16px;
+    padding-right: 48px;
+    border: 2px solid var(--toss-gray-200);
+    border-radius: var(--toss-radius-sm);
+    font-size: 16px;
+    background: var(--toss-white);
+    color: var(--toss-gray-900);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.toss-number-input:focus {
+    outline: none;
+    border-color: var(--toss-blue);
+    box-shadow: 0 0 0 3px var(--toss-blue-light);
+}
+
+.toss-unit {
+    position: absolute;
+    right: 16px;
+    color: var(--toss-gray-500);
+    font-weight: 600;
+    font-size: 14px;
+    pointer-events: none;
+}
+
+/* 토스 검색 버튼 */
+.toss-search-button {
+    width: 100%;
+    padding: 16px 24px;
+    background: var(--toss-blue);
+    color: var(--toss-white);
+    border: none;
+    border-radius: var(--toss-radius-sm);
+    font-weight: 700;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.toss-search-button:hover {
+    background: var(--toss-blue-dark);
+    transform: translateY(-1px);
+    box-shadow: var(--toss-shadow-lg);
+}
+
+.toss-search-button:active {
+    transform: translateY(0);
+}
+
+/* 토스 초기화 버튼 */
+.toss-reset-button {
+    width: 100%;
+    padding: 14px 24px;
+    background: var(--toss-white);
+    color: var(--toss-gray-600);
+    border: 1px solid var(--toss-gray-300);
+    border-radius: var(--toss-radius-sm);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.toss-reset-button:hover {
+    background: var(--toss-gray-50);
+    border-color: var(--toss-gray-400);
+    color: var(--toss-gray-700);
+}
+
+.toss-reset-button:active {
+    transform: translateY(0);
+    background: var(--toss-gray-100);
+}
+
+/* 토스 카드 */
+.toss-card {
+    background: var(--toss-white);
+    border-radius: var(--toss-radius);
+    box-shadow: var(--toss-shadow);
+    border: 1px solid var(--toss-gray-200);
+    overflow: hidden;
+}
+
+.toss-card-header {
+    padding: 20px 24px;
+    background: var(--toss-gray-50);
+    border-bottom: 1px solid var(--toss-gray-200);
+}
+
+.toss-card-title {
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--toss-gray-800);
+    margin: 0;
+}
+
+.toss-card-body {
+    padding: 0;
+}
+
+/* 토스 매물 리스트 */
+.toss-property-list {
+    /* 매물 리스트 컨테이너 */
+}
+
+.toss-property-item {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--toss-gray-200);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    background: var(--toss-white);
+}
+
+.toss-property-item:last-child {
+    border-bottom: none;
+}
+
+.toss-property-item:hover {
+    background: var(--toss-blue-light);
+}
+
+.toss-property-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.toss-property-title {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--toss-gray-800);
+    margin: 0;
+    flex: 1;
+}
+
+.toss-property-status {
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-left: 12px;
+}
+
+.toss-property-status.status-available {
+    background: var(--toss-blue-light);
+    color: var(--toss-blue);
+}
+
+.toss-property-status.status-other {
+    background: var(--toss-gray-100);
+    color: var(--toss-gray-600);
+}
+
+.toss-property-details {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 12px;
+}
+
+.toss-property-price {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.toss-price-label {
+    font-size: 12px;
+    color: var(--toss-gray-500);
+    font-weight: 500;
+}
+
+.toss-price-value {
+    font-size: 14px;
+    color: var(--toss-gray-800);
+    font-weight: 600;
+}
+
+.toss-property-date {
+    font-size: 12px;
+    color: var(--toss-gray-500);
+    margin-bottom: 0;
+}
+
+.toss-property-arrow {
+    position: absolute;
+    right: 24px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--toss-gray-400);
+    transition: all 0.2s ease;
+}
+
+.toss-property-item:hover .toss-property-arrow {
+    color: var(--toss-blue);
+    transform: translateY(-50%) translateX(4px);
+}
+
+/* 토스 빈 상태 */
+.toss-empty-state {
+    padding: 60px 24px;
+    text-align: center;
+}
+
+.toss-empty-content {
+    max-width: 300px;
+    margin: 0 auto;
+}
+
+.toss-empty-icon {
+    color: var(--toss-gray-400);
+    margin-bottom: 16px;
+}
+
+.toss-empty-content h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--toss-gray-700);
+    margin-bottom: 8px;
+}
+
+.toss-empty-content p {
+    font-size: 14px;
+    color: var(--toss-gray-500);
+    margin: 0;
+}
+
+/* 기존 스타일 유지 */
+.property-item {
+    cursor: pointer;
+    padding: 20px 24px;
+    border-left: none;
+    border-right: none;
+    border-bottom: 1px solid var(--toss-gray-200);
+    transition: background-color 0.2s ease;
+}
+
+.property-item:first-child {
+    border-top: none;
+}
+
+.property-item:last-child {
+    border-bottom: none;
+}
+
+.property-item:hover {
+    background-color: var(--toss-blue-light);
+}
+
+.info-window {
+    padding: 15px;
+    max-width: 300px;
+    background-color: var(--toss-gray-800);
+    border-radius: var(--toss-radius-sm);
+    color: var(--toss-white);
+    font-weight: 500;
+    box-shadow: var(--toss-shadow-lg);
+}
+
+.info-window h5 {
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.info-window p {
+    margin-bottom: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.info-window a {
+    color: var(--toss-blue-light);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.info-window a:hover {
+    text-decoration: underline;
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+    .toss-floating-filter {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        width: auto;
+        max-width: none;
+    }
+
+    .toss-filter-header {
+        padding: 16px 20px;
+    }
+
+    .toss-filter-content.expanded {
+        padding: 20px;
+        max-height: calc(100vh - 120px);
+    }
+
+    .toss-filter-title {
+        font-size: 16px;
+    }
+
+    .toss-sheet-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .toss-range-row {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .toss-range-divider {
+        transform: rotate(90deg);
+        margin: 4px 0;
+    }
+
+    .toss-chip-group {
+        justify-content: center;
+    }
+
+    .toss-input {
+        font-size: 16px; /* iOS zoom 방지 */
+    }
+
+    .toss-number-input {
+        font-size: 16px; /* iOS zoom 방지 */
+    }
+}
+
+/* 매우 작은 화면 (320px 이하) */
+@media (max-width: 320px) {
+    .toss-floating-filter {
+        top: 5px;
+        left: 5px;
+        right: 5px;
+    }
+
+    .toss-filter-header {
+        padding: 12px 16px;
+    }
+
+    .toss-filter-content.expanded {
+        padding: 16px;
+    }
+
+    .toss-sheet-button {
+        padding: 12px 14px;
+        font-size: 13px;
+    }
+
+    .toss-chip {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+}

@@ -1,0 +1,48 @@
+1. 매물 상태 결정 로직 (sheets_service.py):
+```python
+# 상태 결정
+status = None
+# 개선된 '갠매' 키워드 매칭
+if any(keyword in q_value.lower() for keyword in ['갠매', '개인', '직거래']):
+    status = '갠매'
+    logging.info(f"  -> 갠매로 판정됨 (Improved Keyword Matching)")
+elif '온하' in q_value.lower():
+    status = '온하'
+    logging.info(f"  -> 온하로 판정됨")
+elif '공클' in q_value.lower():
+    status = '공클'
+    logging.info(f"  -> 공클로 판정됨")
+else:
+    status = '공클'
+    logging.info(f"  -> 기본값 공클로 판정됨")
+```
+
+2. 프론트엔드 필터링 로직 (static/js/map.js):
+```javascript
+// 필터 처리
+function filterProperties() {
+    const selectedStatus = document.querySelector('input[name="statusFilter"]:checked').value;
+    let filteredProperties;
+
+    if (selectedStatus === 'all') {
+        filteredProperties = allProperties;
+    } else {
+        filteredProperties = allProperties.filter(p => p.status === selectedStatus);
+    }
+    displayProperties(filteredProperties);
+}
+
+// 필터 이벤트 리스너
+document.querySelectorAll('input[name="statusFilter"]').forEach(radio => {
+    radio.addEventListener('change', filterProperties);
+});
+```
+
+개선이 필요한 부분:
+1. Q열 값 처리 방식: 더 정교한 '갠매' 키워드 매칭을 위해 `any(keyword in q_value.lower() for keyword in ['갠매', '개인', '직거래'])` 와 같은 방식을 사용하여 여러 키워드를 고려하고 대소문자 구분 없이 처리하도록 개선.
+
+2. 상태 결정 로직:  기존 로직을 유지하면서 '갠매' 키워드 매칭을 개선.
+
+3. 필터링 구현:  기존 필터링 로직을 유지하되, 'all' 상태를 명확하게 처리하도록 수정.
+
+4. 결과 검증 방법:  추가적인 로깅이나 디버깅 도구를 사용하여 필터링 결과를 검증할 수 있도록 개선이 필요합니다. (본 코드에는 구현되지 않았음).

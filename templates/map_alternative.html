@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>매물 지도 (대체 버전)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        #leaflet-map {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        .leaflet-popup-content {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        
+        .popup-content h5 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .popup-content p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .status-ganmae {
+            color: #3182F6;
+            font-weight: 600;
+        }
+        
+        .status-normal {
+            color: #8B95A1;
+        }
+    </style>
+</head>
+<body>
+    <div id="leaflet-map"></div>
+    
+    <!-- 지도 위에 떠있는 매물 필터 -->
+    <div class="toss-floating-filter">
+        <div class="toss-filter-container">
+            <div class="toss-filter-header" id="filterToggle">
+                <div class="toss-filter-title">
+                    <svg class="toss-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M3 7H21L19 12H5L3 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M9 12V19L15 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>매물 필터</span>
+                </div>
+                <svg class="toss-chevron" id="chevronIcon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                    <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            
+            <div class="toss-filter-content" id="filterContent">
+                <!-- 검색 입력 -->
+                <div class="toss-input-group">
+                    <input type="text" class="toss-input" id="searchInput" placeholder="지역명으로 검색해보세요">
+                    <svg class="toss-input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                        <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </div>
+
+                <!-- 시트 선택 -->
+                <div class="toss-section">
+                    <label class="toss-label">매물 유형</label>
+                    <div class="toss-sheet-grid">
+                        <input type="radio" class="toss-sheet-radio" name="sheetType" id="강남월세" value="강남월세" checked>
+                        <label class="toss-sheet-button" for="강남월세">강남월세</label>
+                        
+                        <input type="radio" class="toss-sheet-radio" name="sheetType" id="강남전세" value="강남전세">
+                        <label class="toss-sheet-button" for="강남전세">강남전세</label>
+                        
+                        <input type="radio" class="toss-sheet-radio" name="sheetType" id="송파월세" value="송파월세">
+                        <label class="toss-sheet-button" for="송파월세">송파월세</label>
+                        
+                        <input type="radio" class="toss-sheet-radio" name="sheetType" id="송파전세" value="송파전세">
+                        <label class="toss-sheet-button" for="송파전세">송파전세</label>
+                    </div>
+                </div>
+
+                <!-- 상태 필터 -->
+                <div class="toss-section">
+                    <label class="toss-label">매물 상태</label>
+                    <div class="toss-chip-group">
+                        <input type="radio" class="toss-chip-radio" name="statusFilter" id="gongkeul-alt" value="공클" checked>
+                        <label class="toss-chip" for="gongkeul-alt">공클</label>
+
+                        <input type="radio" class="toss-chip-radio" name="statusFilter" id="onha-alt" value="온하">
+                        <label class="toss-chip" for="onha-alt">온하</label>
+
+                        <input type="radio" class="toss-chip-radio" name="statusFilter" id="ganmae-alt" value="갠매">
+                        <label class="toss-chip" for="ganmae-alt">갠매</label>
+                    </div>
+                </div>
+
+                <!-- 검색 버튼 -->
+                <button id="filterButton" class="toss-search-button">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                        <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    매물 검색하기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map;
+        let markers = [];
+        let allProperties = [];
+
+        // 지도 초기화
+        function initMap() {
+            map = L.map('leaflet-map').setView([37.5014, 127.0398], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        // 매물 데이터 로드
+        async function loadProperties() {
+            try {
+                const sheetType = document.querySelector('input[name="sheetType"]:checked').value;
+                const response = await fetch(`/api/properties/${sheetType}`);
+                if (response.ok) {
+                    allProperties = await response.json();
+                    filterProperties();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        // 지오코딩 함수
+        async function geocodeAddress(address) {
+            try {
+                const response = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`);
+                const data = await response.json();
+                
+                if (data.status === 'OK') {
+                    return {
+                        lat: data.result.lat,
+                        lng: data.result.lng,
+                        formatted_address: data.result.formatted_address
+                    };
+                } else {
+                    console.warn(`Geocoding failed for address: ${address}`);
+                    return null;
+                }
+            } catch (error) {
+                console.error('Geocoding error:', error);
+                return null;
+            }
+        }
+
+        // 매물 필터링
+        function filterProperties() {
+            const selectedStatus = document.querySelector('input[name="statusFilter"]:checked').value;
+            const searchText = document.getElementById('searchInput').value.toLowerCase();
+
+            const filteredProperties = allProperties.filter(property => {
+                if (property.status !== selectedStatus) {
+                    return false;
+                }
+                if (searchText && !property.location.toLowerCase().includes(searchText)) {
+                    return false;
+                }
+                return true;
+            });
+
+            displayProperties(filteredProperties);
+        }
+
+        // 매물 표시
+        async function displayProperties(properties) {
+            // 기존 마커 제거
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            // 주소별로 매물들을 그룹화
+            const groupedProperties = {};
+            properties.forEach(property => {
+                if (!property.location) return;
+                
+                if (!groupedProperties[property.location]) {
+                    groupedProperties[property.location] = [];
+                }
+                groupedProperties[property.location].push(property);
+            });
+
+            // 그룹화된 매물들을 지도에 마커로 표시
+            for (const location of Object.keys(groupedProperties)) {
+                const propertiesAtLocation = groupedProperties[location];
+                const address = location + ' 서울특별시';
+                
+                const geocodeResult = await geocodeAddress(address);
+                
+                if (geocodeResult) {
+                    // 상태별 마커 색상 결정: 갠매(파란색), 공클(초록색), 온하(주황색)
+                    const statusPriority = { '갠매': 3, '공클': 2, '온하': 1 };
+                    const statusColors = { '갠매': '#3182F6', '공클': '#10B981', '온하': '#F59E0B' };
+                    
+                    // 가장 우선순위가 높은 상태 찾기
+                    const highestStatus = propertiesAtLocation.reduce((prev, current) => {
+                        const prevPriority = statusPriority[prev.status] || 0;
+                        const currentPriority = statusPriority[current.status] || 0;
+                        return currentPriority > prevPriority ? current : prev;
+                    });
+                    
+                    const color = statusColors[highestStatus.status] || '#8B95A1';
+                    
+                    const marker = L.circleMarker([geocodeResult.lat, geocodeResult.lng], {
+                        color: color,
+                        fillColor: color,
+                        fillOpacity: 0.7,
+                        radius: 10,
+                        weight: 2
+                    }).addTo(map);
+
+                    // 팝업 내용 생성
+                    let popupContent = `<div class="popup-content">`;
+                    popupContent += `<h5>${location}</h5>`;
+                    
+                    propertiesAtLocation.forEach((prop, index) => {
+                        const statusClass = prop.status === '갠매' ? 'status-ganmae' : 'status-normal';
+                        popupContent += `
+                            <div style="margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #eee;">
+                                <p><strong>상태:</strong> <span class="${statusClass}">${prop.status}</span></p>
+                                <p><strong>보증금:</strong> ${prop.deposit}</p>
+                                <p><strong>월세:</strong> ${prop.monthly_rent}</p>
+                            </div>
+                        `;
+                    });
+                    
+                    popupContent += `</div>`;
+                    marker.bindPopup(popupContent);
+                    markers.push(marker);
+                }
+            }
+
+            // 모든 마커가 보이도록 지도 범위 조정
+            if (markers.length > 0) {
+                const group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        // 이벤트 리스너
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            loadProperties();
+
+            // 필터 토글
+            const filterToggle = document.getElementById('filterToggle');
+            const filterContent = document.getElementById('filterContent');
+            const chevronIcon = document.getElementById('chevronIcon');
+            
+            filterToggle.addEventListener('click', function() {
+                const isExpanded = filterContent.classList.contains('expanded');
+                
+                if (isExpanded) {
+                    filterContent.classList.remove('expanded');
+                    chevronIcon.style.transform = 'rotate(0deg)';
+                } else {
+                    filterContent.classList.add('expanded');
+                    chevronIcon.style.transform = 'rotate(180deg)';
+                }
+            });
+
+            // 필터 변경 시 데이터 다시 로드
+            document.querySelectorAll('input[name="sheetType"]').forEach(radio => {
+                radio.addEventListener('change', loadProperties);
+            });
+
+            // 검색 버튼
+            document.getElementById('filterButton').addEventListener('click', filterProperties);
+            
+            // 검색 입력 엔터키
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    filterProperties();
+                }
+            });
+
+            // 상태 필터 변경
+            document.querySelectorAll('input[name="statusFilter"]').forEach(radio => {
+                radio.addEventListener('change', filterProperties);
+            });
+        });
+    </script>
+</body>
+</html> 

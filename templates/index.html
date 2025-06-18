@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- 지도 (전체 화면) -->
+        <div class="col-12 p-0">
+            <div id="map"></div>
+            
+            <!-- 지도 위에 떠있는 매물 필터 -->
+            <div class="toss-floating-filter">
+                <div class="toss-filter-container">
+                    <div class="toss-filter-header" id="filterToggle">
+                        <div class="toss-filter-title">
+                            <svg class="toss-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path d="M3 7H21L19 12H5L3 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M9 12V19L15 16V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <span>매물 필터</span>
+                        </div>
+                        <svg class="toss-chevron" id="chevronIcon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                    
+                    <div class="toss-filter-content" id="filterContent">
+                        <!-- 검색 입력 -->
+                        <div class="toss-input-group">
+                            <input type="text" class="toss-input" id="searchInput" placeholder="지역명으로 검색해보세요">
+                            <svg class="toss-input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                                <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+
+                        <!-- 시트 선택 -->
+                        <div class="toss-section">
+                            <label class="toss-label">매물 유형</label>
+                            <div class="toss-sheet-grid">
+                                <input type="radio" class="toss-sheet-radio" name="sheetType" id="gangnam-monthly" value="강남월세" checked>
+                                <label class="toss-sheet-button" for="gangnam-monthly">강남월세</label>
+                                
+                                <input type="radio" class="toss-sheet-radio" name="sheetType" id="gangnam-jeonse" value="강남전세">
+                                <label class="toss-sheet-button" for="gangnam-jeonse">강남전세</label>
+                                
+                                <input type="radio" class="toss-sheet-radio" name="sheetType" id="songpa-monthly" value="송파월세">
+                                <label class="toss-sheet-button" for="songpa-monthly">송파월세</label>
+                                
+                                <input type="radio" class="toss-sheet-radio" name="sheetType" id="songpa-jeonse" value="송파전세">
+                                <label class="toss-sheet-button" for="songpa-jeonse">송파전세</label>
+                            </div>
+                        </div>
+
+                        <!-- 상태 필터 -->
+                        <div class="toss-section">
+                            <label class="toss-label">매물 상태</label>
+                            <div class="toss-chip-group">
+                                <input type="radio" class="toss-chip-radio" name="statusFilter" id="gongkeul" value="공클" checked>
+                                <label class="toss-chip" for="gongkeul">공클</label>
+
+                                <input type="radio" class="toss-chip-radio" name="statusFilter" id="onha" value="온하">
+                                <label class="toss-chip" for="onha">온하</label>
+
+                                <input type="radio" class="toss-chip-radio" name="statusFilter" id="ganmae" value="갠매">
+                                <label class="toss-chip" for="ganmae">갠매</label>
+                            </div>
+                        </div>
+
+                        <!-- 보증금 범위 -->
+                        <div class="toss-section">
+                            <label class="toss-label">보증금 범위</label>
+                            <div class="toss-range-group">
+                                <div class="toss-range-row">
+                                    <div class="toss-input-wrapper">
+                                        <input type="number" class="toss-number-input" id="depositBillionStart" placeholder="0" min="0">
+                                        <span class="toss-unit">억</span>
+                                    </div>
+                                    <div class="toss-input-wrapper">
+                                        <input type="number" class="toss-number-input" id="depositMillionStart" placeholder="0" min="0">
+                                        <span class="toss-unit">만원</span>
+                                    </div>
+                                </div>
+                                <div class="toss-range-divider">~</div>
+                                <div class="toss-range-row">
+                                    <div class="toss-input-wrapper">
+                                        <input type="number" class="toss-number-input" id="depositBillionEnd" placeholder="0" min="0">
+                                        <span class="toss-unit">억</span>
+                                    </div>
+                                    <div class="toss-input-wrapper">
+                                        <input type="number" class="toss-number-input" id="depositMillionEnd" placeholder="0" min="0">
+                                        <span class="toss-unit">만원</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 월세 범위 -->
+                        <div class="toss-section">
+                            <label class="toss-label">월세 범위</label>
+                            <div class="toss-range-group">
+                                <div class="toss-range-row">
+                                    <div class="toss-input-wrapper">
+                                        <input type="number" class="toss-number-input" id="monthlyRentStart" placeholder="0" min="0">
+                                        <span class="toss-unit">만원</span>
+                                    </div>
+                                </div>
+                                <div class="toss-range-divider">~</div>
+                                <div class="toss-range-row">
+                                    <div class="toss-input-wrapper">
+                                        <input type="number" class="toss-number-input" id="monthlyRentEnd" placeholder="0" min="0">
+                                        <span class="toss-unit">만원</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 초기화 버튼 -->
+                        <button id="resetButton" class="toss-reset-button">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path d="M1 4V10H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M3.51 15A9 9 0 1 0 6 5L1 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            필터 초기화
+                        </button>
+
+                        <!-- 안내 메시지 -->
+                        <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 14px; color: #6c757d;">
+                            <div style="font-weight: 600; color: #495057; margin-bottom: 4px;">📍 사용 방법</div>
+                            <div>1. 매물 유형을 선택하세요</div>
+                            <div>2. 아래 버튼을 클릭하여 매물을 로드하세요</div>
+                        </div>
+
+                        <!-- 검색 버튼 -->
+                        <button id="filterButton" class="toss-search-button">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                                <path d="M21 21L16.65 16.65" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            매물 검색하기
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/map.js') }}?v=20250103"></script>
+<script>
+// 토스 스타일 필터 토글 기능
+document.addEventListener('DOMContentLoaded', function() {
+    const filterToggle = document.getElementById('filterToggle');
+    const filterContent = document.getElementById('filterContent');
+    const chevronIcon = document.getElementById('chevronIcon');
+    
+    filterToggle.addEventListener('click', function() {
+        const isExpanded = filterContent.classList.contains('expanded');
+        
+        if (isExpanded) {
+            filterContent.classList.remove('expanded');
+            chevronIcon.style.transform = 'rotate(0deg)';
+        } else {
+            filterContent.classList.add('expanded');
+            chevronIcon.style.transform = 'rotate(180deg)';
+        }
+    });
+    
+    // 초기 상태는 접힌 상태
+    filterContent.classList.remove('expanded');
+});
+</script>
+{% endblock %}
