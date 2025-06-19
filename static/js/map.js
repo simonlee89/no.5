@@ -20,9 +20,10 @@ async function loadProperties() {
     console.log('=== 매물 데이터 로드 시작 ===');
     
     try {
-        // 1. 완전한 시스템 초기화 (기존 데이터 모두 삭제)
-        console.log('완전한 시스템 초기화 실행...');
-        completeReset();
+        // 1. 지도와 데이터만 초기화 (필터 상태는 유지)
+        console.log('지도와 매물 데이터 초기화 실행...');
+        clearMap();
+        allProperties = [];
         
         // 잠시 대기하여 초기화가 완전히 완료되도록 함
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -305,29 +306,9 @@ function resetSearchFilters() {
             console.warn('검색 입력 필드를 찾을 수 없습니다.');
         }
         
-        // 매물 상태를 공클로 초기화
-        const gongkeulStatus = document.getElementById('gongkeul');
-        const onhaStatus = document.getElementById('onha');
-        const ganmaeStatus = document.getElementById('ganmae');
-        
-        if (gongkeulStatus) {
-            gongkeulStatus.checked = true;
-            // 이벤트 트리거
-            gongkeulStatus.dispatchEvent(new Event('change', { bubbles: true }));
-            console.log('매물 상태 "공클"로 초기화 완료');
-        } else {
-            console.warn('공클 상태 라디오 버튼을 찾을 수 없습니다.');
-        }
-        
-        if (onhaStatus) {
-            onhaStatus.checked = false;
-            console.log('온하 상태 체크 해제');
-        }
-        
-        if (ganmaeStatus) {
-            ganmaeStatus.checked = false;
-            console.log('갠매 상태 체크 해제');
-        }
+        // 매물 상태 초기화 부분 제거 - 사용자가 선택한 상태 유지
+        // 기존 코드에서 상태를 "공클"로 강제 초기화하던 부분을 제거합니다
+        console.log('매물 상태는 사용자 선택 상태를 유지합니다.');
         
         // 보증금 범위 초기화
         const depositInputs = [
@@ -442,7 +423,7 @@ function checkFilterStatus() {
 function resetFilters() {
     console.log('=== 전체 필터 초기화 시작 ===');
     
-    // 1. 검색 필터 초기화
+    // 1. 검색 필터 초기화 (매물 상태는 초기화하지 않음)
     resetSearchFilters();
     
     // 2. 매물 유형을 첫 번째 옵션으로 초기화
@@ -452,23 +433,31 @@ function resetFilters() {
         console.log('매물 유형을 "강남월세"로 초기화');
     }
     
-    // 3. 기존 마커들과 매물 데이터 완전 제거
+    // 3. 매물 상태를 "공클"로 초기화
+    const gongkeulStatus = document.getElementById('gongkeul');
+    if (gongkeulStatus) {
+        gongkeulStatus.checked = true;
+        gongkeulStatus.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log('매물 상태를 "공클"로 초기화');
+    }
+    
+    // 4. 기존 마커들과 매물 데이터 완전 제거
     clearMap();
     allProperties = [];
     
-    // 4. 매물 개수 표시 초기화
+    // 5. 매물 개수 표시 초기화
     const propertyCount = document.querySelector('.property-count');
     if (propertyCount) {
         propertyCount.textContent = '매물 0개';
     }
     
-    // 5. 초기화 후 상태 확인
+    // 6. 초기화 후 상태 확인
     setTimeout(() => {
         checkFilterStatus();
     }, 50);
     
-    // 6. 사용자에게 피드백 제공
-            console.info('모든 필터가 초기화되었습니다. "매물 검색하기" 버튼을 눌러 새로운 매물을 로드해주세요.');
+    // 7. 사용자에게 피드백 제공
+    console.info('모든 필터가 초기화되었습니다. "매물 검색하기" 버튼을 눌러 새로운 매물을 로드해주세요.');
     
     console.log('=== 전체 필터 초기화 완료 ===');
 }
@@ -499,6 +488,12 @@ function filterProperties() {
     console.log('선택된 상태:', selectedStatus);
     console.log('검색 텍스트:', searchText);
     console.log('선택된 시트 타입:', selectedSheetType);
+
+    // 매물들의 실제 상태 확인 (처음 10개)
+    console.log('매물 상태 샘플 (처음 10개):');
+    allProperties.slice(0, 10).forEach((prop, idx) => {
+        console.log(`  ${idx + 1}. ID: ${prop.id}, 상태: "${prop.status}", 위치: ${prop.location}`);
+    });
 
     // 보증금 범위 계산 (억 단위를 만원으로 변환)
     const depositBillionStartEl = document.getElementById('depositBillionStart');
@@ -546,8 +541,11 @@ function filterProperties() {
         // 각 API 엔드포인트(/api/properties/강남월세, /api/properties/송파월세 등)가 이미 시트별로 구분됨
 
         // 상태 필터 - 선택된 상태와 매물 상태가 일치하지 않으면 필터링
-        if (property.status !== selectedStatus) {
-            console.log(`매물 ${index} 필터링됨: 상태 불일치 (선택: ${selectedStatus}, 매물: ${property.status})`);
+        const propertyStatus = property.status ? property.status.trim() : '';
+        const selectedStatusTrimmed = selectedStatus ? selectedStatus.trim() : '';
+        
+        if (propertyStatus !== selectedStatusTrimmed) {
+            console.log(`매물 ${index} 필터링됨: 상태 불일치 (선택: "${selectedStatusTrimmed}", 매물: "${propertyStatus}")`);
             return false;
         }
 
@@ -846,13 +844,19 @@ async function displayProperties(properties) {
                 pixelOffset: new naver.maps.Point(0, -10)
             });
 
-            // 마커 클릭 이벤트
+            // 마커 클릭 이벤트 - 토글 기능 추가
             naver.maps.Event.addListener(marker, 'click', function() {
+                // 현재 InfoWindow가 열려있는지 확인
+                const isCurrentlyOpen = infoWindow.getMap() !== null;
+                
                 // 다른 InfoWindow들 닫기
                 infoWindows.forEach(iw => iw.close());
                 
-                // 현재 InfoWindow 열기
-                infoWindow.open(map, marker);
+                // 현재 InfoWindow가 닫혀있었다면 열기
+                if (!isCurrentlyOpen) {
+                    infoWindow.open(map, marker);
+                }
+                // 이미 열려있었다면 위에서 닫혔으므로 그대로 두기
             });
 
             markers.push(marker);
