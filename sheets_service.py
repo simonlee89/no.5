@@ -14,7 +14,7 @@ from google_auth_utils import load_google_credentials_from_env, load_dotenv_if_e
 logging.basicConfig(level=logging.INFO)
 
 # 캐시 설정
-CACHE_TTL = 300  # 5분 (초 단위)
+CACHE_TTL = 1800  # 30분 (초 단위) - 5분에서 30분으로 증가하여 성능 개선
 _cache_timestamps = {}
 
 def timed_cache(ttl_seconds):

@@ -17,16 +17,16 @@ function initMap() {
 }
 
 async function loadProperties() {
-    console.log('=== 매물 데이터 로드 시작 ===');
+    // 성능 개선: 필수 로깅만 유지
+    console.log('매물 데이터 로드 시작');
     
     try {
         // 1. 지도와 데이터만 초기화 (필터 상태는 유지)
-        console.log('지도와 매물 데이터 초기화 실행...');
         clearMap();
         allProperties = [];
         
-        // 잠시 대기하여 초기화가 완전히 완료되도록 함
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // 성능 개선: 불필요한 대기 시간 제거
+        await new Promise(resolve => setTimeout(resolve, 50));
         
         const sheetTypeElement = document.querySelector('input[name="sheetType"]:checked');
         if (!sheetTypeElement) {
@@ -63,9 +63,7 @@ async function loadProperties() {
             document.head.appendChild(style);
         }
         
-        console.log('API 요청 시작:', `/api/properties/${sheetType}`);
         const response = await fetch(`/api/properties/${sheetType}`);
-        console.log('API 응답 상태:', response.status);
         
         if (response.ok) {
             const data = await response.json();
@@ -73,23 +71,7 @@ async function loadProperties() {
             if (Array.isArray(data)) {
                 // 기존 매물 완전히 교체 (누적 방지)
                 allProperties = data;
-                console.log(`[${sheetType}] 로드된 매물 수:`, allProperties.length);
-                
-                if (allProperties.length > 0) {
-                    console.log(`[${sheetType}] 첫 번째 매물 샘플:`, allProperties[0]);
-                    console.log(`[${sheetType}] 매물 데이터 구조 확인:`);
-                    const sampleProperty = allProperties[0];
-                    console.log('- ID:', sampleProperty.id);
-                    console.log('- 위치:', sampleProperty.location);
-                    console.log('- 시트타입:', sampleProperty.sheet_type);
-                    console.log('- 상태:', sampleProperty.status);
-                    console.log('- 보증금:', sampleProperty.deposit);
-                    console.log('- 월세:', sampleProperty.monthly_rent);
-                    console.log('- 등록일:', sampleProperty.reg_date);
-                } else {
-                    console.warn('로드된 매물이 없습니다.');
-                    console.warn('해당 시트에 매물 데이터가 없습니다.');
-                }
+                console.log(`${sheetType}: ${allProperties.length}개 매물 로드됨`);
             } else {
                 console.error('API 응답이 배열이 아닙니다:', data);
                 allProperties = [];
@@ -118,16 +100,9 @@ async function loadProperties() {
             `;
         }
         
-        console.log('=== 매물 데이터 로드 완료 ===');
-        
         // 2. 매물 로드 완료 후 자동으로 필터링 및 지도 표시
         if (allProperties.length > 0) {
-            console.log('매물 로드 완료 - 자동으로 필터링 및 지도 표시 시작');
-            console.log('현재 allProperties 배열 상태:', allProperties.length, '개');
-            console.log('첫 번째 매물의 시트 타입:', allProperties[0]?.sheet_type);
             filterProperties();
-        } else {
-            console.log('로드된 매물이 없어서 필터링을 건너뜁니다.');
         }
     }
 }
@@ -183,10 +158,8 @@ async function batchGeocode(addresses) {
         }
     });
     
-    console.log(`배치 지오코딩: 캐시 히트 ${Object.keys(results).length}개, API 호출 필요 ${uncachedAddresses.length}개`);
-    
-    // 캐시되지 않은 주소들을 병렬로 처리 (최대 3개씩 - API 과부하 방지)
-    const batchSize = 3;
+    // 성능 개선: 배치 크기 증가로 처리 속도 향상
+    const batchSize = 5;
     for (let i = 0; i < uncachedAddresses.length; i += batchSize) {
         const batch = uncachedAddresses.slice(i, i + batchSize);
         const batchPromises = batch.map(address => geocodeAddress(address));
@@ -202,9 +175,9 @@ async function batchGeocode(addresses) {
             console.error('배치 지오코딩 오류:', error);
         }
         
-        // API 호출 간격 조절 (과부하 방지) - 200ms 대기
+        // 성능 개선: API 호출 간격 단축
         if (i + batchSize < uncachedAddresses.length) {
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
     }
     
@@ -463,8 +436,7 @@ function resetFilters() {
 }
 
 function filterProperties() {
-    console.log('=== 필터링 시작 ===');
-    console.log('전체 매물 수:', allProperties.length);
+    // 성능 개선: 필수 로깅만 유지
     
     if (allProperties.length === 0) {
         console.warn('필터링할 매물이 없습니다. 먼저 데이터를 로드해주세요.');
@@ -485,15 +457,7 @@ function filterProperties() {
     const searchText = searchElement.value.toLowerCase().trim();
     const selectedSheetType = sheetTypeElement.value;
 
-    console.log('선택된 상태:', selectedStatus);
-    console.log('검색 텍스트:', searchText);
-    console.log('선택된 시트 타입:', selectedSheetType);
-
-    // 매물들의 실제 상태 확인 (처음 10개)
-    console.log('매물 상태 샘플 (처음 10개):');
-    allProperties.slice(0, 10).forEach((prop, idx) => {
-        console.log(`  ${idx + 1}. ID: ${prop.id}, 상태: "${prop.status}", 위치: ${prop.location}`);
-    });
+    // 성능 개선: 디버깅 로그 제거
 
     // 보증금 범위 계산 (억 단위를 만원으로 변환)
     const depositBillionStartEl = document.getElementById('depositBillionStart');
@@ -517,24 +481,7 @@ function filterProperties() {
     const monthlyRentStart = parseInt(monthlyRentStartEl?.value || 0) || 0;
     const monthlyRentEnd = parseInt(monthlyRentEndEl?.value || 0) || 0;
 
-    console.log('필터 조건:', {
-        selectedStatus,
-        searchText,
-        totalDepositStart,
-        totalDepositEnd,
-        monthlyRentStart,
-        monthlyRentEnd
-    });
-
-    // 필터링 전 상태별 개수 확인
-    const statusCount = {};
-    const sheetTypeCount = {};
-    allProperties.forEach(prop => {
-        statusCount[prop.status] = (statusCount[prop.status] || 0) + 1;
-        sheetTypeCount[prop.sheet_type] = (sheetTypeCount[prop.sheet_type] || 0) + 1;
-    });
-    console.log('매물 상태별 개수:', statusCount);
-    console.log('매물 시트타입별 개수:', sheetTypeCount);
+    // 성능 개선: 필터링 전 상태 확인 로직 제거
 
     const filteredProperties = allProperties.filter((property, index) => {
         // 시트 타입 필터링 제거 - 백엔드에서 이미 선택된 시트의 데이터만 가져오므로 불필요
@@ -545,58 +492,42 @@ function filterProperties() {
         const selectedStatusTrimmed = selectedStatus ? selectedStatus.trim() : '';
         
         if (propertyStatus !== selectedStatusTrimmed) {
-            console.log(`매물 ${index} 필터링됨: 상태 불일치 (선택: "${selectedStatusTrimmed}", 매물: "${propertyStatus}")`);
             return false;
         }
 
         // 지역 검색 필터
         if (searchText && property.location && !property.location.toLowerCase().includes(searchText)) {
-            console.log(`매물 ${index} 필터링됨: 지역 불일치`);
             return false;
         }
 
         // 보증금 필터
         const propertyDeposit = parseAmount(property.deposit);
         if (totalDepositStart > 0 && propertyDeposit < totalDepositStart) {
-            console.log(`매물 ${index} 필터링됨: 보증금 최소값 미달`);
             return false;
         }
         if (totalDepositEnd > 0 && propertyDeposit > totalDepositEnd) {
-            console.log(`매물 ${index} 필터링됨: 보증금 최대값 초과`);
             return false;
         }
 
         // 월세 필터
         const propertyMonthlyRent = parseAmount(property.monthly_rent);
         if (monthlyRentStart > 0 && propertyMonthlyRent < monthlyRentStart) {
-            console.log(`매물 ${index} 필터링됨: 월세 최소값 미달`);
             return false;
         }
         if (monthlyRentEnd > 0 && propertyMonthlyRent > monthlyRentEnd) {
-            console.log(`매물 ${index} 필터링됨: 월세 최대값 초과`);
             return false;
         }
-
-        console.log(`매물 ${index} 통과`);
         return true;
     });
 
-    // 필터링 후 상태별 개수 확인
-    const filteredStatusCount = {};
-    filteredProperties.forEach(prop => {
-        filteredStatusCount[prop.status] = (filteredStatusCount[prop.status] || 0) + 1;
-    });
-    
-    console.log('필터링된 매물 수:', filteredProperties.length);
-    console.log('필터링 후 상태별 개수:', filteredStatusCount);
-    console.log('=== 필터링 완료 ===');
+    // 성능 개선: 간단한 로깅만 유지
+    console.log(`필터링 완료: ${filteredProperties.length}개 매물`);
     
     displayProperties(filteredProperties);
 }
 
 async function displayProperties(properties) {
-    console.log('=== 매물 표시 시작 ===');
-    console.log('표시할 매물 수:', properties.length, '개');
+    // 성능 개선: 필수 로깅만 유지
     
     // 기존 마커들 제거
     clearMap();
@@ -604,7 +535,6 @@ async function displayProperties(properties) {
     const myToken = renderToken; // clearMap으로 증가된 후 토큰 복사
 
     if (properties.length === 0) {
-        console.log('표시할 매물이 없습니다. 목록을 비웁니다.');
         // 매물 목록 UI도 초기화
         const propertyList = document.getElementById('propertyList');
         if (propertyList) {
@@ -612,8 +542,6 @@ async function displayProperties(properties) {
         }
         return;
     }
-    
-    console.log('첫 번째 매물 정보:', properties[0]);
     
     // 주소별로 매물들을 그룹화
     const groupedProperties = {};
@@ -630,16 +558,9 @@ async function displayProperties(properties) {
         groupedProperties[locationKey].push(property);
     });
     
-    console.log('주소별 그룹화된 매물 수:', Object.keys(groupedProperties).length, '개');
-    if (Object.keys(groupedProperties).length > 0) {
-        console.log('그룹화된 주소 목록:', Object.keys(groupedProperties));
-    }
-
     // 모든 주소를 배치로 지오코딩
     const uniqueLocations = Object.keys(groupedProperties);
-    console.log('배치 지오코딩 시작...');
     const geocodeResults = await batchGeocode(uniqueLocations);
-    console.log('배치 지오코딩 완료');
     
     // 초기화 확인
     if (myToken !== renderToken) {
@@ -653,7 +574,6 @@ async function displayProperties(properties) {
         const geocodeResult = geocodeResults[location];
         
         if (geocodeResult && geocodeResult.lat && geocodeResult.lng) {
-            console.log(`[Geocoding] 성공: "${location}" ->`, geocodeResult);
             const position = new naver.maps.LatLng(geocodeResult.lat, geocodeResult.lng);
             
             // 매물 개수에 따른 마커 표시 (여러 매물이 있으면 개수 표시)
@@ -672,8 +592,6 @@ async function displayProperties(properties) {
             });
             
             const markerColor = statusColors[highestStatus.status] || '#8B95A1';
-            
-            console.log(`[Marker] 생성 시작: 위치=${location}, 매물 수=${propertyCount}, 대표상태=${highestStatus.status}, 색상=${markerColor}`);
             
             const marker = new naver.maps.Marker({
                 map: map,
@@ -861,13 +779,10 @@ async function displayProperties(properties) {
 
             markers.push(marker);
             infoWindows.push(infoWindow);
-        } else {
-            console.warn(`[Geocoding] 실패 또는 유효하지 않은 결과: "${location}"`, geocodeResult);
         }
     }
     
-    console.log('지도에 추가된 마커 수:', markers.length, '개');
-    console.log('=== 매물 표시 완료 ===');
+    console.log(`지도 표시 완료: ${markers.length}개 마커`);
 }
 
 // Event Listeners 등록 함수

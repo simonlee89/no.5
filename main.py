@@ -8,6 +8,9 @@ from sheets_service import get_property_data, test_sheets_connection
 from config import NAVER_CLIENT_ID, NAVER_CLIENT_SECRET
 from ncp_maps_utils import geocode_address, test_ncp_maps_connection
 import socket
+from flask import make_response
+import gzip
+from functools import wraps
 
 # Configure logging
 logging.basicConfig(
@@ -20,6 +23,47 @@ logging.basicConfig(
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "default-secret-key")
+
+# 성능 개선을 위한 응답 압축 데코레이터
+def gzip_response(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        response = make_response(f(*args, **kwargs))
+        
+        # Accept-Encoding 헤더 확인
+        accept_encoding = request.headers.get('Accept-Encoding', '')
+        if 'gzip' not in accept_encoding.lower():
+            return response
+            
+        # JSON 응답만 압축 (정적 파일은 웹서버에서 처리)
+        if response.content_type.startswith('application/json'):
+            response.data = gzip.compress(response.data)
+            response.headers['Content-Encoding'] = 'gzip'
+            response.headers['Content-Length'] = len(response.data)
+            
+        return response
+    return decorated_function
+
+# 정적 파일 캐시 헤더 추가
+@app.after_request
+def add_cache_headers(response):
+    # 정적 파일에 대한 캐시 헤더 설정
+    if request.endpoint == 'static':
+        # CSS, JS 파일은 1시간 캐시
+        if request.path.endswith(('.css', '.js')):
+            response.cache_control.max_age = 3600  # 1시간
+            response.cache_control.public = True
+        # 이미지 파일은 1일 캐시
+        elif request.path.endswith(('.png', '.jpg', '.jpeg', '.gif', '.ico')):
+            response.cache_control.max_age = 86400  # 1일
+            response.cache_control.public = True
+    
+    # API 응답에 대한 캐시 헤더
+    elif request.path.startswith('/api/properties/'):
+        response.cache_control.max_age = 1800  # 30분 (Google Sheets 캐시와 동일)
+        response.cache_control.public = True
+        
+    return response
 
 def auto_restart(port):
     """자동 재시작 함수: 10분마다 서버 상태를 확인하고 필요시 재시작"""
@@ -73,23 +117,13 @@ def alternative_map():
         return str(e), 500
 
 @app.route('/api/properties/<sheet_type>')
+@gzip_response
 def get_properties(sheet_type):
     try:
         properties = get_property_data(sheet_type)
         
-        # 디버깅을 위한 상태별 개수 로깅
-        status_count = {}
-        for prop in properties:
-            status = prop.get('status', 'unknown')
-            status_count[status] = status_count.get(status, 0) + 1
-        
-        logging.info(f"API 응답 - {sheet_type}: 총 {len(properties)}개 매물")
-        logging.info(f"상태별 개수: {status_count}")
-        
-        # 첫 번째 매물 샘플 로깅
-        if properties:
-            sample = properties[0]
-            logging.info(f"샘플 매물: ID={sample.get('id')}, 위치={sample.get('location')}, 시트타입={sample.get('sheet_type')}, 상태={sample.get('status')}")
+        # 성능 개선: 프로덕션에서는 간단한 로깅만
+        logging.info(f"API 응답 - {sheet_type}: {len(properties)}개 매물")
         
         return jsonify(properties)
     except Exception as e:

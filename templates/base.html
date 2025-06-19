@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>매물 지도</title>
-    <!-- 브라우저 캐시 무효화 -->
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
+    <!-- 성능 개선: 브라우저 캐시 활성화 -->
+    <meta http-equiv="Cache-Control" content="public, max-age=3600">
+    <meta name="description" content="실시간 매물 정보를 지도에서 확인하세요">
+    <meta name="keywords" content="매물, 부동산, 지도, 강남, 송파">
     <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=20250103-performance">
     <!-- 네이버 클라우드 플랫폼 신규 Maps API (2024 업데이트) -->
     <!-- 신규 형식: ncpKeyId 사용 (기존 ncpClientId에서 변경됨) -->
     <!-- 새로운 클라이언트 ID로 교체 필요: ncpKeyId=YOUR_NEW_CLIENT_ID -->
