@@ -14,16 +14,22 @@ from google_auth_utils import load_google_credentials_from_env, load_dotenv_if_e
 logging.basicConfig(level=logging.INFO)
 
 # 캐시 설정
-CACHE_TTL = 1800  # 30분 (초 단위) - 5분에서 30분으로 증가하여 성능 개선
+CACHE_TTL = 3600  # 1시간 (초 단위) - 30분에서 1시간으로 증가하여 성능 개선
 _cache_timestamps = {}
 
+# 메모리 효율적인 캐시 관리
+_sheet_cache = {}
+_cache_lock = False
+
 def timed_cache(ttl_seconds):
-    """시간 기반 캐시 데코레이터"""
+    """시간 기반 캐시 데코레이터 - 메모리 효율성 개선"""
     def decorator(func):
         cache = {}
         
         @wraps(func)
         def wrapper(*args, **kwargs):
+            global _cache_lock
+            
             # 캐시 키 생성
             key = str(args) + str(sorted(kwargs.items()))
             current_time = time.time()
@@ -39,12 +45,32 @@ def timed_cache(ttl_seconds):
                     del cache[key]
                     logging.info(f"캐시 TTL 만료로 삭제: {func.__name__}")
             
-            # 새로 데이터 가져와서 캐시에 저장
-            logging.info(f"새로운 데이터 요청: {func.__name__}")
-            result = func(*args, **kwargs)
-            cache[key] = (result, current_time)
+            # 캐시 락 체크 (동시 요청 방지)
+            if _cache_lock:
+                logging.info("다른 요청이 처리 중입니다. 잠시 대기...")
+                time.sleep(1)
+                # 대기 후 다시 캐시 확인
+                if key in cache:
+                    data, timestamp = cache[key]
+                    if current_time - timestamp < ttl_seconds:
+                        return data
             
-            return result
+            # 새로 데이터 가져와서 캐시에 저장
+            _cache_lock = True
+            try:
+                logging.info(f"새로운 데이터 요청: {func.__name__}")
+                result = func(*args, **kwargs)
+                cache[key] = (result, current_time)
+                
+                # 메모리 관리: 캐시 크기 제한 (최대 3개 시트 데이터)
+                if len(cache) > 3:
+                    oldest_key = min(cache.keys(), key=lambda k: cache[k][1])
+                    del cache[oldest_key]
+                    logging.info(f"캐시 크기 제한으로 오래된 데이터 삭제: {oldest_key}")
+                
+                return result
+            finally:
+                _cache_lock = False
         
         # 캐시 클리어 함수 추가
         wrapper.clear_cache = lambda: cache.clear()

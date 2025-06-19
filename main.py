@@ -12,6 +12,15 @@ from flask import make_response
 import gzip
 from functools import wraps
 
+# Render 최적화 import
+try:
+    from performance_config import optimize_for_render, log_performance_stats
+    optimize_for_render()  # 시작 시 최적화 적용
+except ImportError:
+    print("성능 최적화 모듈을 찾을 수 없습니다. 기본 설정으로 실행합니다.")
+    def log_performance_stats():
+        pass
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,  # DEBUG에서 INFO로 변경하여 중요한 로그만 보기
@@ -198,28 +207,58 @@ if __name__ == '__main__':
     # Google Sheets API 연결 테스트
     logging.info("=== Google Sheets API 연결 테스트 ===")
     try:
-        if test_sheets_connection():
+        sheets_test_result = test_sheets_connection()
+        if sheets_test_result:
             logging.info("Google Sheets API 연결이 정상적으로 작동합니다.")
+            
+            # 성능 최적화: 주요 데이터 사전 로딩
+            logging.info("=== 주요 데이터 사전 로딩 ===")
+            try:
+                # 가장 많이 사용되는 강남월세 데이터 사전 로딩
+                logging.info("강남월세 데이터 사전 로딩 중...")
+                preload_data = get_property_data('강남월세')
+                logging.info(f"강남월세 {len(preload_data)}개 매물 사전 로딩 완료")
+                
+                # 강남전세 데이터도 사전 로딩
+                logging.info("강남전세 데이터 사전 로딩 중...")
+                preload_data = get_property_data('강남전세')
+                logging.info(f"강남전세 {len(preload_data)}개 매물 사전 로딩 완료")
+                
+                logging.info("✅ 데이터 사전 로딩 완료 - 첫 번째 검색이 더 빨라집니다!")
+                
+            except Exception as e:
+                logging.warning(f"데이터 사전 로딩 실패 (계속 진행): {str(e)}")
         else:
-            logging.warning("Google Sheets API 연결에 문제가 있지만 앱을 계속 실행합니다.")
+            logging.error("Google Sheets API 연결 실패")
     except Exception as e:
-        logging.error(f"Google Sheets API 테스트 중 오류 발생: {str(e)}")
-        logging.warning("API 테스트를 건너뛰고 앱을 시작합니다.")
+        logging.error(f"Google Sheets API 연결 테스트 실패: {str(e)}")
 
     # 네이버 클라우드 플랫폼 Maps API 연결 테스트
     logging.info("=== 네이버 클라우드 플랫폼 Maps API 연결 테스트 ===")
     try:
-        if test_ncp_maps_connection():
+        maps_test_result = test_ncp_maps_connection()
+        if maps_test_result:
             logging.info("네이버 클라우드 플랫폼 Maps API 연결이 정상적으로 작동합니다.")
         else:
-            logging.warning("네이버 클라우드 플랫폼 Maps API 연결에 문제가 있지만 앱을 계속 실행합니다.")
+            logging.error("네이버 클라우드 플랫폼 Maps API 연결 실패")
     except Exception as e:
-        logging.error(f"NCP Maps API 테스트 중 오류 발생: {str(e)}")
-        logging.warning("API 테스트를 건너뛰고 앱을 시작합니다.")
+        logging.error(f"네이버 클라우드 플랫폼 Maps API 연결 테스트 실패: {str(e)}")
+
+    # 성능 통계 출력
+    try:
+        log_performance_stats()
+    except Exception as e:
+        logging.warning(f"성능 통계 출력 실패: {str(e)}")
 
     # 포트 설정
-    port = int(os.environ.get('PORT', 5050))
+    port = int(os.environ.get("PORT", 5050))
     logging.info(f"Starting server on port: {port}")
 
-    # Render 환경에서는 gunicorn을 사용하지 않고 직접 Flask 실행
+    # 자동 재시작 스레드 시작 (프로덕션 환경에서만)
+    if os.environ.get("RENDER"):
+        logging.info("프로덕션 환경 감지 - 자동 재시작 모니터링 시작")
+        restart_thread = threading.Thread(target=auto_restart, args=(port,), daemon=True)
+        restart_thread.start()
+
+    # Flask 앱 실행
     app.run(host='0.0.0.0', port=port, debug=False)

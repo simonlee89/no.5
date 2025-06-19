@@ -158,8 +158,8 @@ async function batchGeocode(addresses) {
         }
     });
     
-    // 성능 개선: 배치 크기 증가로 처리 속도 향상
-    const batchSize = 5;
+    // 성능 개선: 배치 크기 증가로 처리 속도 향상 (Render Starter 모델 최적화)
+    const batchSize = 10;  // 5에서 10으로 증가
     for (let i = 0; i < uncachedAddresses.length; i += batchSize) {
         const batch = uncachedAddresses.slice(i, i + batchSize);
         const batchPromises = batch.map(address => geocodeAddress(address));
@@ -169,15 +169,26 @@ async function batchGeocode(addresses) {
             batch.forEach((address, index) => {
                 if (batchResults[index]) {
                     results[address] = batchResults[index];
+                    
+                    // 즉시 캐시에 저장
+                    const cacheKey = address.trim().toLowerCase();
+                    cache[cacheKey] = {
+                        result: batchResults[index],
+                        timestamp: Date.now()
+                    };
                 }
             });
+            
+            // 배치 처리 후 캐시 업데이트
+            setGeocodingCache(cache);
+            
         } catch (error) {
             console.error('배치 지오코딩 오류:', error);
         }
         
-        // 성능 개선: API 호출 간격 단축
+        // 성능 개선: API 호출 간격 더 단축 (100ms에서 50ms로)
         if (i + batchSize < uncachedAddresses.length) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 50));
         }
     }
     
