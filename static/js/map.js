@@ -37,11 +37,29 @@ async function loadProperties() {
         const sheetType = sheetTypeElement.value;
         console.log('선택된 시트 타입:', sheetType);
         
-        // 로딩 상태 표시 (선택사항)
+        // 로딩 상태 표시
         const filterButton = document.getElementById('filterButton');
         if (filterButton) {
             filterButton.disabled = true;
-            filterButton.textContent = '로딩 중...';
+            filterButton.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="width: 16px; height: 16px; border: 2px solid #ffffff; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                    매물 로딩 중...
+                </div>
+            `;
+        }
+        
+        // 스피너 애니메이션 CSS 추가
+        if (!document.getElementById('spinner-style')) {
+            const style = document.createElement('style');
+            style.id = 'spinner-style';
+            style.textContent = `
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `;
+            document.head.appendChild(style);
         }
         
         console.log('API 요청 시작:', `/api/properties/${sheetType}`);
@@ -113,18 +131,117 @@ async function loadProperties() {
     }
 }
 
-// 새로운 지오코딩 함수 - 네이버 클라우드 플랫폼 API 사용
-async function geocodeAddress(address) {
+// 지오코딩 캐시 관리
+const GEOCODING_CACHE_KEY = 'geocoding_cache';
+const CACHE_EXPIRY_HOURS = 24; // 24시간 캐시
+
+function getGeocodingCache() {
     try {
+        const cached = localStorage.getItem(GEOCODING_CACHE_KEY);
+        if (!cached) return {};
+        
+        const data = JSON.parse(cached);
+        const now = Date.now();
+        
+        // 만료된 항목 제거
+        Object.keys(data).forEach(key => {
+            if (now - data[key].timestamp > CACHE_EXPIRY_HOURS * 60 * 60 * 1000) {
+                delete data[key];
+            }
+        });
+        
+        return data;
+    } catch (error) {
+        console.error('Error reading geocoding cache:', error);
+        return {};
+    }
+}
+
+function setGeocodingCache(cache) {
+    try {
+        localStorage.setItem(GEOCODING_CACHE_KEY, JSON.stringify(cache));
+    } catch (error) {
+        console.error('Error saving geocoding cache:', error);
+    }
+}
+
+// 새로운 지오코딩 함수 - 캐싱 포함
+// 배치 지오코딩 함수 - 여러 주소를 효율적으로 처리
+async function batchGeocode(addresses) {
+    const cache = getGeocodingCache();
+    const results = {};
+    const uncachedAddresses = [];
+    
+    // 캐시된 결과 먼저 수집
+    addresses.forEach(address => {
+        const cacheKey = address.trim().toLowerCase();
+        if (cache[cacheKey]) {
+            results[address] = cache[cacheKey].result;
+        } else {
+            uncachedAddresses.push(address);
+        }
+    });
+    
+    console.log(`배치 지오코딩: 캐시 히트 ${Object.keys(results).length}개, API 호출 필요 ${uncachedAddresses.length}개`);
+    
+    // 캐시되지 않은 주소들을 병렬로 처리 (최대 3개씩 - API 과부하 방지)
+    const batchSize = 3;
+    for (let i = 0; i < uncachedAddresses.length; i += batchSize) {
+        const batch = uncachedAddresses.slice(i, i + batchSize);
+        const batchPromises = batch.map(address => geocodeAddress(address));
+        
+        try {
+            const batchResults = await Promise.all(batchPromises);
+            batch.forEach((address, index) => {
+                if (batchResults[index]) {
+                    results[address] = batchResults[index];
+                }
+            });
+        } catch (error) {
+            console.error('배치 지오코딩 오류:', error);
+        }
+        
+        // API 호출 간격 조절 (과부하 방지) - 200ms 대기
+        if (i + batchSize < uncachedAddresses.length) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+    }
+    
+    return results;
+}
+
+async function geocodeAddress(address) {
+    if (!address) return null;
+    
+    // 캐시에서 먼저 확인
+    const cache = getGeocodingCache();
+    const cacheKey = address.trim().toLowerCase();
+    
+    if (cache[cacheKey]) {
+        console.log(`Geocoding cache hit for: ${address}`);
+        return cache[cacheKey].result;
+    }
+    
+    try {
+        console.log(`Geocoding API call for: ${address}`);
         const response = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`);
         const data = await response.json();
         
         if (data.status === 'OK') {
-            return {
+            const result = {
                 lat: data.result.lat,
                 lng: data.result.lng,
                 formatted_address: data.result.formatted_address
             };
+            
+            // 캐시에 저장
+            cache[cacheKey] = {
+                result: result,
+                timestamp: Date.now()
+            };
+            setGeocodingCache(cache);
+            
+            return result;
         } else {
             console.warn(`Geocoding failed for address: ${address}`);
             return null;
@@ -520,18 +637,22 @@ async function displayProperties(properties) {
         console.log('그룹화된 주소 목록:', Object.keys(groupedProperties));
     }
 
+    // 모든 주소를 배치로 지오코딩
+    const uniqueLocations = Object.keys(groupedProperties);
+    console.log('배치 지오코딩 시작...');
+    const geocodeResults = await batchGeocode(uniqueLocations);
+    console.log('배치 지오코딩 완료');
+    
+    // 초기화 확인
+    if (myToken !== renderToken) {
+        console.warn('[Display] 배치 지오코딩 후 초기화 감지, 렌더링 중단');
+        return;
+    }
+    
     // 그룹화된 매물들을 지도에 마커로 표시
-    for (const location of Object.keys(groupedProperties)) {
-        // 초기화되어 토큰이 달라지면 중단
-        if (myToken !== renderToken) {
-            console.warn('[Display] 초기화 감지, 렌더링 중단');
-            return;
-        }
+    for (const location of uniqueLocations) {
         const propertiesAtLocation = groupedProperties[location];
-        
-        console.log(`[Geocoding] 주소 처리 시작: "${location}"`);
-        
-        const geocodeResult = await geocodeAddress(location);
+        const geocodeResult = geocodeResults[location];
         
         if (geocodeResult && geocodeResult.lat && geocodeResult.lng) {
             console.log(`[Geocoding] 성공: "${location}" ->`, geocodeResult);

@@ -138,6 +138,26 @@ def health_check():
             "error": str(e)
         }), 500
 
+@app.route('/api/cache/clear', methods=['POST'])
+def clear_cache():
+    """캐시를 수동으로 클리어하는 API"""
+    try:
+        from sheets_service import get_property_data
+        # 캐시 클리어
+        get_property_data.clear_cache()
+        logging.info("캐시가 성공적으로 클리어되었습니다.")
+        return jsonify({
+            "status": "success",
+            "message": "캐시가 클리어되었습니다.",
+            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
+        }), 200
+    except Exception as e:
+        logging.error(f"캐시 클리어 실패: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "error": str(e)
+        }), 500
+
 if __name__ == '__main__':
     logging.info("Starting Flask application...")
 

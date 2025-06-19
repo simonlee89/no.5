@@ -4,6 +4,7 @@ import re
 import os
 import base64
 import time
+from functools import lru_cache, wraps
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
@@ -11,6 +12,44 @@ from config import SPREADSHEET_ID, SHEET_RANGES
 from google_auth_utils import load_google_credentials_from_env, load_dotenv_if_exists
 
 logging.basicConfig(level=logging.INFO)
+
+# 캐시 설정
+CACHE_TTL = 300  # 5분 (초 단위)
+_cache_timestamps = {}
+
+def timed_cache(ttl_seconds):
+    """시간 기반 캐시 데코레이터"""
+    def decorator(func):
+        cache = {}
+        
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # 캐시 키 생성
+            key = str(args) + str(sorted(kwargs.items()))
+            current_time = time.time()
+            
+            # 캐시된 데이터가 있고 TTL 내에 있으면 반환
+            if key in cache:
+                data, timestamp = cache[key]
+                if current_time - timestamp < ttl_seconds:
+                    logging.info(f"캐시에서 데이터 반환: {func.__name__} (남은 시간: {ttl_seconds - (current_time - timestamp):.1f}초)")
+                    return data
+                else:
+                    # TTL 만료된 캐시 삭제
+                    del cache[key]
+                    logging.info(f"캐시 TTL 만료로 삭제: {func.__name__}")
+            
+            # 새로 데이터 가져와서 캐시에 저장
+            logging.info(f"새로운 데이터 요청: {func.__name__}")
+            result = func(*args, **kwargs)
+            cache[key] = (result, current_time)
+            
+            return result
+        
+        # 캐시 클리어 함수 추가
+        wrapper.clear_cache = lambda: cache.clear()
+        return wrapper
+    return decorator
 
 def determine_status(r_value, s_value, t_value, sheet_type):
     """
@@ -163,6 +202,7 @@ def get_sheets_service():
         logging.error(f"Full traceback: {traceback.format_exc()}")
         raise
 
+@timed_cache(CACHE_TTL)
 def get_property_data(sheet_type='강남월세'):
     try:
         logging.info(f"Starting to fetch property data for sheet type: {sheet_type}")
@@ -237,7 +277,6 @@ def get_property_data(sheet_type='강남월세'):
                 t_value = str(row[19]).strip() if len(row) > 19 and row[19] else ''  # T열 (갠매)
 
                 if not property_id or not location:
-                    logging.debug(f"[{sheet_type}] 행 {i+1}: 필수 데이터 누락 (ID: '{property_id}', 위치: '{location}')")
                     continue
 
                 status = determine_status(r_value, s_value, t_value, sheet_type)
@@ -245,7 +284,6 @@ def get_property_data(sheet_type='강남월세'):
                 # 상태가 None인 경우 (모든 열이 비어있음) 매물 제외
                 if status is None:
                     excluded_count += 1
-                    logging.info(f"[{sheet_type}] 행 {i+1}: 모든 상태 열이 비어있어 제외됨 (ID: {property_id}, R='{r_value}', S='{s_value}', T='{t_value}')")
                     continue
                 
                 status_counts[status] += 1
@@ -268,23 +306,10 @@ def get_property_data(sheet_type='강남월세'):
 
                 properties.append(property_data)
 
-                # 처음 5개 매물의 모든 컬럼 데이터 확인 (온하/공클 위치 찾기)
-                if i < 5:
-                    logging.info(f"[{sheet_type}] 매물 {i+1}: ID={property_id}, 위치={location}, 상태={status}")
-                    logging.info(f"[{sheet_type}] 매물 {i+1} 전체 행 길이: {len(row)}")
-                    
-                    # 모든 컬럼 출력하여 온하/공클 위치 찾기
-                    for col_idx in range(len(row)):
-                        col_value = str(row[col_idx]).strip() if row[col_idx] else ''
-                        if col_value:  # 값이 있는 컬럼만 출력
-                            col_letter = chr(65 + col_idx) if col_idx < 26 else f"A{chr(65 + col_idx - 26)}"
-                            # 온하, 공클, 갠매가 포함된 셀 강조 표시
-                            if any(keyword in col_value for keyword in ['온하', '공클', '갠매']):
-                                logging.info(f"[{sheet_type}] ⭐ 매물 {i+1} {col_letter}열(인덱스{col_idx}): '{col_value}' ⭐")
-                            elif len(col_value) < 100:  # 긴 설명은 제외하고 짧은 값들만 출력
-                                logging.info(f"[{sheet_type}] 매물 {i+1} {col_letter}열(인덱스{col_idx}): '{col_value}'")
-                    
-                    logging.info(f"[{sheet_type}] 매물 {i+1} 현재 설정 - R값='{r_value}', S값='{s_value}', T값='{t_value}'")
+                # 첫 번째 매물만 디버깅 정보 출력 (성능 최적화)
+                if i == 0:
+                    logging.info(f"[{sheet_type}] 첫 번째 매물: ID={property_id}, 위치={location}, 상태={status}")
+                    logging.debug(f"[{sheet_type}] 첫 번째 매물 현재 설정 - R값='{r_value}', S값='{s_value}', T값='{t_value}'")
 
             except Exception as e:
                 logging.error(f"[{sheet_type}] 행 {i+1} 처리 중 오류: {str(e)}")
