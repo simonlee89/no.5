@@ -147,28 +147,35 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/map.js') }}?v=20250103-performance"></script>
+<!-- 성능 개선: JavaScript 파일 캐시 버스팅 및 defer 속성 추가 -->
+<script defer src="{{ url_for('static', filename='js/map.js') }}?v=20250103-perf-v2"></script>
 <script>
-// 토스 스타일 필터 토글 기능
+// 성능 개선: DOMContentLoaded 이벤트 최적화
 document.addEventListener('DOMContentLoaded', function() {
+    // DOM 요소 캐싱
     const filterToggle = document.getElementById('filterToggle');
     const filterContent = document.getElementById('filterContent');
     const chevronIcon = document.getElementById('chevronIcon');
     
+    // 초기 상태 설정 (애니메이션 없이)
+    filterContent.classList.remove('expanded');
+    chevronIcon.style.transform = 'rotate(0deg)';
+    
+    // 이벤트 리스너 등록
     filterToggle.addEventListener('click', function() {
         const isExpanded = filterContent.classList.contains('expanded');
         
-        if (isExpanded) {
-            filterContent.classList.remove('expanded');
-            chevronIcon.style.transform = 'rotate(0deg)';
-        } else {
-            filterContent.classList.add('expanded');
-            chevronIcon.style.transform = 'rotate(180deg)';
-        }
+        // 성능 개선: requestAnimationFrame 사용
+        requestAnimationFrame(() => {
+            if (isExpanded) {
+                filterContent.classList.remove('expanded');
+                chevronIcon.style.transform = 'rotate(0deg)';
+            } else {
+                filterContent.classList.add('expanded');
+                chevronIcon.style.transform = 'rotate(180deg)';
+            }
+        });
     });
-    
-    // 초기 상태는 접힌 상태
-    filterContent.classList.remove('expanded');
 });
 </script>
 {% endblock %}

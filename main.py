@@ -21,9 +21,9 @@ except ImportError:
     def log_performance_stats():
         pass
 
-# Configure logging
+# Configure logging - 프로덕션에서는 WARNING 레벨
 logging.basicConfig(
-    level=logging.INFO,  # DEBUG에서 INFO로 변경하여 중요한 로그만 보기
+    level=logging.WARNING if os.environ.get("RENDER") else logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s',
     handlers=[
         logging.StreamHandler()
@@ -32,6 +32,10 @@ logging.basicConfig(
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "default-secret-key")
+
+# 성능 개선: JSON 응답 설정
+app.config['JSON_SORT_KEYS'] = False  # 정렬 비활성화로 성능 향상
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False  # Pretty print 비활성화
 
 # 성능 개선을 위한 응답 압축 데코레이터
 def gzip_response(f):
@@ -58,18 +62,23 @@ def gzip_response(f):
 def add_cache_headers(response):
     # 정적 파일에 대한 캐시 헤더 설정
     if request.endpoint == 'static':
-        # CSS, JS 파일은 1시간 캐시
+        # CSS, JS 파일은 24시간 캐시
         if request.path.endswith(('.css', '.js')):
-            response.cache_control.max_age = 3600  # 1시간
+            response.cache_control.max_age = 86400  # 24시간
             response.cache_control.public = True
-        # 이미지 파일은 1일 캐시
+        # 이미지 파일은 7일 캐시
         elif request.path.endswith(('.png', '.jpg', '.jpeg', '.gif', '.ico')):
-            response.cache_control.max_age = 86400  # 1일
+            response.cache_control.max_age = 604800  # 7일
             response.cache_control.public = True
     
     # API 응답에 대한 캐시 헤더
     elif request.path.startswith('/api/properties/'):
-        response.cache_control.max_age = 1800  # 30분 (Google Sheets 캐시와 동일)
+        response.cache_control.max_age = 3600  # 1시간
+        response.cache_control.public = True
+    
+    # 지오코딩 API 캐시
+    elif request.path.startswith('/api/geocode'):
+        response.cache_control.max_age = 86400  # 24시간
         response.cache_control.public = True
         
     return response
@@ -80,25 +89,19 @@ def auto_restart(port):
     while True:
         try:
             # 서버 상태 확인
-            logging.info("Checking server status...")
-
-            # Health check 수행
             try:
                 response = requests.get(f'http://127.0.0.1:{port}/health', timeout=5)
                 if response.status_code == 200:
-                    logging.info("Server is healthy")
-                    consecutive_failures = 0  # 성공하면 실패 카운트 리셋
+                    consecutive_failures = 0
                 else:
-                    logging.error(f"Health check failed with status code: {response.status_code}")
                     consecutive_failures += 1
-            except requests.RequestException as e:
-                logging.error(f"Health check failed with error: {str(e)}")
+            except requests.RequestException:
                 consecutive_failures += 1
 
             # 연속 3번 실패하면 재시작
             if consecutive_failures >= 3:
                 logging.critical("Three consecutive health checks failed. Forcing restart...")
-                os._exit(1)  # 서버 강제 재시작
+                os._exit(1)
 
             # 10분 대기
             time.sleep(600)
@@ -132,7 +135,8 @@ def get_properties(sheet_type):
         properties = get_property_data(sheet_type)
         
         # 성능 개선: 프로덕션에서는 간단한 로깅만
-        logging.info(f"API 응답 - {sheet_type}: {len(properties)}개 매물")
+        if not os.environ.get("RENDER"):
+            logging.info(f"API 응답 - {sheet_type}: {len(properties)}개 매물")
         
         return jsonify(properties)
     except Exception as e:
@@ -140,6 +144,7 @@ def get_properties(sheet_type):
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/geocode')
+@gzip_response
 def geocode():
     """지오코딩 API 엔드포인트 - 주소를 위도/경도로 변환"""
     try:
@@ -202,63 +207,71 @@ def clear_cache():
         }), 500
 
 if __name__ == '__main__':
-    logging.info("Starting Flask application...")
+    is_production = os.environ.get("RENDER")
+    
+    if not is_production:
+        logging.info("Starting Flask application...")
 
     # Google Sheets API 연결 테스트
-    logging.info("=== Google Sheets API 연결 테스트 ===")
+    if not is_production:
+        logging.info("=== Google Sheets API 연결 테스트 ===")
     try:
         sheets_test_result = test_sheets_connection()
         if sheets_test_result:
-            logging.info("Google Sheets API 연결이 정상적으로 작동합니다.")
+            if not is_production:
+                logging.info("Google Sheets API 연결이 정상적으로 작동합니다.")
             
             # 성능 최적화: 주요 데이터 사전 로딩
-            logging.info("=== 주요 데이터 사전 로딩 ===")
+            if not is_production:
+                logging.info("=== 주요 데이터 사전 로딩 ===")
             try:
                 # 가장 많이 사용되는 강남월세 데이터 사전 로딩
-                logging.info("강남월세 데이터 사전 로딩 중...")
                 preload_data = get_property_data('강남월세')
-                logging.info(f"강남월세 {len(preload_data)}개 매물 사전 로딩 완료")
+                if not is_production:
+                    logging.info(f"강남월세 {len(preload_data)}개 매물 사전 로딩 완료")
                 
                 # 강남전세 데이터도 사전 로딩
-                logging.info("강남전세 데이터 사전 로딩 중...")
                 preload_data = get_property_data('강남전세')
-                logging.info(f"강남전세 {len(preload_data)}개 매물 사전 로딩 완료")
-                
-                logging.info("✅ 데이터 사전 로딩 완료 - 첫 번째 검색이 더 빨라집니다!")
+                if not is_production:
+                    logging.info(f"강남전세 {len(preload_data)}개 매물 사전 로딩 완료")
+                    logging.info("✅ 데이터 사전 로딩 완료 - 첫 번째 검색이 더 빨라집니다!")
                 
             except Exception as e:
-                logging.warning(f"데이터 사전 로딩 실패 (계속 진행): {str(e)}")
+                if not is_production:
+                    logging.warning(f"데이터 사전 로딩 실패 (계속 진행): {str(e)}")
         else:
             logging.error("Google Sheets API 연결 실패")
     except Exception as e:
         logging.error(f"Google Sheets API 연결 테스트 실패: {str(e)}")
 
     # 네이버 클라우드 플랫폼 Maps API 연결 테스트
-    logging.info("=== 네이버 클라우드 플랫폼 Maps API 연결 테스트 ===")
+    if not is_production:
+        logging.info("=== 네이버 클라우드 플랫폼 Maps API 연결 테스트 ===")
     try:
         maps_test_result = test_ncp_maps_connection()
-        if maps_test_result:
+        if maps_test_result and not is_production:
             logging.info("네이버 클라우드 플랫폼 Maps API 연결이 정상적으로 작동합니다.")
-        else:
+        elif not maps_test_result:
             logging.error("네이버 클라우드 플랫폼 Maps API 연결 실패")
     except Exception as e:
         logging.error(f"네이버 클라우드 플랫폼 Maps API 연결 테스트 실패: {str(e)}")
 
     # 성능 통계 출력
-    try:
-        log_performance_stats()
-    except Exception as e:
-        logging.warning(f"성능 통계 출력 실패: {str(e)}")
+    if not is_production:
+        try:
+            log_performance_stats()
+        except Exception as e:
+            logging.warning(f"성능 통계 출력 실패: {str(e)}")
 
     # 포트 설정
     port = int(os.environ.get("PORT", 5050))
-    logging.info(f"Starting server on port: {port}")
+    if not is_production:
+        logging.info(f"Starting server on port: {port}")
 
     # 자동 재시작 스레드 시작 (프로덕션 환경에서만)
-    if os.environ.get("RENDER"):
-        logging.info("프로덕션 환경 감지 - 자동 재시작 모니터링 시작")
+    if is_production:
         restart_thread = threading.Thread(target=auto_restart, args=(port,), daemon=True)
         restart_thread.start()
 
-    # Flask 앱 실행
-    app.run(host='0.0.0.0', port=port, debug=False)
+    # Flask 앱 실행 - 프로덕션에서는 threaded=True로 동시 요청 처리
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
